@@ -65,9 +65,14 @@ class TargetsNeurons:
         """
         Target all cells of certain cell types
         """
-        ids = np.concatenate(
-            (self.scaffold.get_placement_set(t).identifiers for t in self.cell_types)
-        )
+        ids = None
+        for t in self.cell_types:
+            if ids is None:
+                ids = np.array(self.scaffold.get_placement_set(t).identifiers)
+            else:
+                ids = np.concatenate(
+                    ids, np.array(self.scaffold.get_placement_set(t).identifiers)
+                )
         n = len(ids)
         # Use the `cell_fraction` or `cell_count` attribute to determine what portion of
         # the selected ids to exclude.
