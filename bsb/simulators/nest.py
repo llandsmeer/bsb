@@ -648,9 +648,9 @@ class NestAdapter(SimulatorAdapter):
             report(
                 "Creating {} {}...".format(len(scaffold_identifiers), nest_name), level=3
             )
-            nest_identifiers = self.nest.Create(nest_name, len(scaffold_identifiers))
+            nest_node_collection = self.nest.Create(nest_name, len(scaffold_identifiers))
             cell_model.scaffold_identifiers.extend(scaffold_identifiers)
-            cell_model.nest_identifiers.extend(nest_identifiers)
+            cell_model.nest_identifiers.extend(nest_node_collection.tolist())
 
     def create_entities(self):
         # Create entities
@@ -660,7 +660,8 @@ class NestAdapter(SimulatorAdapter):
             count = self.scaffold.statistics.cells_placed[entity_type.name]
             # Create the cell model in the simulator
             report("Creating " + nest_name + "...", level=3)
-            entity_nodes = list(self.nest.Create(entity_type.device, count))
+            # Create entities as NEST nodes and extract list of GIDs
+            entity_nodes = (self.nest.Create(entity_type.device, count)).tolist()
             report("Creating {} {}...".format(count, nest_name), level=3)
             if hasattr(entity_type, "parameters"):
                 # Execute SetStatus and catch DictError
