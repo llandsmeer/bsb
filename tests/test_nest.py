@@ -62,15 +62,42 @@ class TestSingleNeuronTypeSetup(unittest.TestCase):
         test_cell_model = self.nest_adapter.cell_models["test_cell"]
         self.assertEqual(test_cell_model.nest_identifiers, list(range(1, 5)))
 
-        test_neuron_status = self.nest_adapter.nest.GetStatus(
-            test_cell_model.nest_identifiers
+        self.assertEqual(
+            (
+                self.nest_adapter.nest.NodeCollection(test_cell_model.nest_identifiers)
+            ).t_ref[0],
+            1.5,
         )
-        self.assertEqual(test_neuron_status[0]["t_ref"], 1.5)
-        self.assertEqual(test_neuron_status[0]["C_m"], 7.0)
-        self.assertEqual(test_neuron_status[0]["V_th"], -41.0)
-        self.assertEqual(test_neuron_status[0]["V_reset"], -70.0)
-        self.assertEqual(test_neuron_status[0]["E_L"], -62.0)
-        self.assertEqual(test_neuron_status[0]["I_e"], 0.0)
+        self.assertEqual(
+            (self.nest_adapter.nest.NodeCollection(test_cell_model.nest_identifiers)).C_m[
+                0
+            ],
+            7.0,
+        )
+        self.assertEqual(
+            (
+                self.nest_adapter.nest.NodeCollection(test_cell_model.nest_identifiers)
+            ).V_th[0],
+            -41.0,
+        )
+        self.assertEqual(
+            (
+                self.nest_adapter.nest.NodeCollection(test_cell_model.nest_identifiers)
+            ).V_reset[0],
+            -70.0,
+        )
+        self.assertEqual(
+            (self.nest_adapter.nest.NodeCollection(test_cell_model.nest_identifiers)).E_L[
+                0
+            ],
+            -62.0,
+        )
+        self.assertEqual(
+            (self.nest_adapter.nest.NodeCollection(test_cell_model.nest_identifiers)).I_e[
+                0
+            ],
+            0.0,
+        )
 
 
 @unittest.skipIf(importlib.util.find_spec("nest") is None, "NEST is not importable.")
@@ -407,8 +434,8 @@ class TestMultiInstance(unittest.TestCase):
         self.assertTrue(
             all(
                 map(
-                    lambda x: str(x["model"]) == "test_cell_first",
-                    self.nest.GetStatus(id1),
+                    lambda x: x.model == "test_cell_first",
+                    self.nest.NodeCollection(id1),
                 )
             )
         )
@@ -416,7 +443,7 @@ class TestMultiInstance(unittest.TestCase):
             all(
                 map(
                     lambda x: str(x["model"]) == "test_cell_second",
-                    self.nest.GetStatus(id2),
+                    self.nest.NodeCollection(id2).get(),
                 )
             )
         )
