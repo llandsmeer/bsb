@@ -1028,4 +1028,4 @@ def get_device_protocol(device):
     return DeviceProtocol(device)
 
 
-_device_protocols = {"spike_detector": SpikeDetectorProtocol}
+_device_protocols = {"spike_recorder": SpikeDetectorProtocol}
