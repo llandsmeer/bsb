@@ -89,14 +89,12 @@
           }
         },
         "record_spikes": {
-          "device": "spike_detector",
+          "device": "spike_recorder",
           "io": "output",
           "targetting": "cell_type",
           "cell_types": ["test_cell"],
+          "record_to": "ascii",
           "parameters": {
-            "withgid": true,
-            "withtime": true,
-            "to_file": true,
             "label": "test_spikes"
           }
         }

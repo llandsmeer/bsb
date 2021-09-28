@@ -646,86 +646,72 @@
           }
         },
         "record_glomerulus_spikes": {
-          "device": "spike_detector",
+          "device": "spike_recorder",
           "io": "output",
           "targetting": "cell_type",
           "cell_types": ["glomerulus"],
+          "record_to": "ascii",
           "parameters": {
-            "withgid": true,
-            "withtime": true,
-            "to_file": true,
             "label": "glomerulus_spikes"
           }
         },
         "record_granule_spikes": {
-          "device": "spike_detector",
+          "device": "spike_recorder",
           "io": "output",
           "targetting": "cell_type",
           "cell_types": ["granule_cell"],
+          "record_to": "ascii",
           "parameters": {
-            "withgid": true,
-            "withtime": true,
-            "to_file": true,
             "label": "granule_spikes"
           }
         },
         "record_golgi_spikes": {
-          "device": "spike_detector",
+          "device": "spike_recorder",
           "io": "output",
           "targetting": "cell_type",
           "cell_types": ["golgi_cell"],
+          "record_to": "ascii",
           "parameters": {
-            "withgid": true,
-            "withtime": true,
-            "to_file": true,
             "label": "golgi_spikes"
           }
         },
         "record_purkinje_spikes": {
-          "device": "spike_detector",
+          "device": "spike_recorder",
           "io": "output",
           "targetting": "cell_type",
           "cell_types": ["purkinje_cell"],
+          "record_to": "ascii",
           "parameters": {
-            "withgid": true,
-            "withtime": true,
-            "to_file": true,
             "label": "purkinje_spikes"
           }
         },
         "record_stellate_spikes": {
-          "device": "spike_detector",
+          "device": "spike_recorder",
           "io": "output",
           "targetting": "cell_type",
           "cell_types": ["stellate_cell"],
+          "record_to": "ascii",
           "parameters": {
-            "withgid": true,
-            "withtime": true,
-            "to_file": true,
             "label": "stellate_spikes"
           }
         },
         "record_basket_spikes": {
-          "device": "spike_detector",
+          "device": "spike_recorder",
           "io": "output",
           "targetting": "cell_type",
           "cell_types": ["basket_cell"],
+          "record_to": "ascii",
           "parameters": {
-            "withgid": true,
-            "withtime": true,
-            "to_file": true,
             "label": "basket_spikes"
           }
         },
         "record_dcn_spikes": {
-          "device": "spike_detector",
+          "device": "spike_recorder",
           "io": "output",
           "targetting": "cell_type",
           "cell_types": ["dcn_cell"],
+          "record_to": "ascii",
           "parameters": {
-            "withgid": true,
-            "withtime": true,
-            "to_file": true,
             "label": "dcn_spikes"
           }
         }

@@ -798,6 +798,8 @@ class NestAdapter(SimulatorAdapter):
             device_model.protocol.before_create()
             device = self.nest.Create(device_model.device)
             report("Creating device:  " + device_model.device, level=3)
+            if hasattr(device_model, "record_to"):
+                device.record_to = device_model.record_to
             # Execute SetStatus and catch DictError
             self.execute_command(
                 self.nest.SetStatus,
