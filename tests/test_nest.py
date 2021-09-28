@@ -463,4 +463,4 @@ class TestDeviceProtocol(unittest.TestCase):
         simulator = adapter.prepare()
         self.assertEqual(1, len(adapter.result.recorders))
         adapter.simulate(simulator)
-        adapter.collect_output()
+        adapter.collect_output(simulator)
