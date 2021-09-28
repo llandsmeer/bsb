@@ -480,8 +480,8 @@ class NestAdapter(SimulatorAdapter):
             # Update the kernel with the new RNG and thread state.
             self.nest.SetKernelStatus(
                 {
-                    "grng_seed": master_seed + total_num,
-                    "rng_seeds": thread_seeds,
+                    "rng_seed": master_seed,
+                    "rng_type": "mt19937",
                     "local_num_threads": threads,
                     "total_num_virtual_procs": total_num,
                 }
