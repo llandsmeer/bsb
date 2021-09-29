@@ -959,7 +959,7 @@ class SpikeRecorder(SimulationRecorder):
     def get_data(self):
         from glob import glob
 
-        files = glob("*" + self.device_model.parameters["label"] + "*.gdf")
+        files = glob("*" + self.device_model.parameters["label"] + "*.dat")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             spikes = np.zeros((0, 2), dtype=float)
