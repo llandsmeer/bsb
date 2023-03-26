@@ -393,16 +393,13 @@ class CodeDependencyNode(FileDependencyNode):
 @config.node
 class Operation:
     func = config.attr(type=types.function_())
-    parameters = config.catch_all()
+    parameters = config.catch_all(type=types.any_())
 
     def __init__(self, value=None, /, **kwargs):
         if value is not None:
             self.func = value
 
-    def __call__(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
-
-    def process(self, obj):
+    def __call__(self, obj):
         return self.func(obj, **self.parameters)
 
 
@@ -433,12 +430,7 @@ class NrrdDependencyNode(FilePipelineMixin, FileDependencyNode):
 
 @config.node
 class MorphologyOperation(Operation):
-    func = config.attr(
-        type=types.or_(
-            types.method_shortcut("bsb.morphologies.Morphology"),
-            types.function_(),
-        )
-    )
+    func = config.attr(type=types.method_shortcut("bsb.morphologies.Morphology"))
 
 
 @config.node
