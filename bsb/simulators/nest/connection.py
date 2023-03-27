@@ -1,125 +1,158 @@
-from bsb import config
-from bsb.config import types
-from bsb.simulation.connection import ConnectionModel
-from bsb.exceptions import ReceptorSpecificationError
+import functools
+import sys
+
 import numpy as np
+import psutil
+from tqdm import tqdm
+
+from bsb import config
+from bsb.config import types, compose_nodes
+from bsb.services import MPI
+from bsb.simulation.connection import ConnectionModel
+from bsb.exceptions import NestConnectError
+
+
+@config.node
+class NestSynapseSettings:
+    model = config.attr(type=str, default="static_synapse")
+    weight = config.attr(type=float, required=True)
+    delay = config.attr(type=float, required=True)
+    receptor_type = config.attr(type=int)
+    constants = config.catch_all(type=types.any_())
 
 
 @config.node
 class NestConnectionSettings:
     rule = config.attr(type=str)
-    model = config.attr(type=str)
-    weight = config.attr(type=float, required=True)
-    delay = config.attr(type=types.distribution(), required=True)
+    constants = config.catch_all(type=types.any_())
 
 
-@config.node
-class NestSynapseSettings:
-    model_settings = config.catch_all(type=dict)
+class LazySynapseCollection:
+    def __init__(self, pre, post):
+        self._pre = pre
+        self._post = post
+
+    def __getattr__(self, attr):
+        return getattr(self.collection, attr)
+
+    @functools.cache
+    def collection(self):
+        import nest
+
+        return nest.GetConnections(self._pre, self._post)
 
 
-@config.node
-class NestConnection(ConnectionModel):
-    connection = config.attr(type=NestConnectionSettings, required=True)
+@config.dynamic(attr_name="model_strategy", required=False)
+class NestConnection(compose_nodes(NestConnectionSettings, ConnectionModel)):
+    tag = config.attr(type=str)
     synapse = config.attr(type=NestSynapseSettings, required=True)
-    synapse_model = config.attr(type=str)
-    plastic = config.attr(default=False)
-    hetero = config.attr(default=False)
-    teaching = config.attr(type=str)
-    is_teaching = config.attr(default=False)
 
-    def boot(self):
-        self.synapse_model = self.synapse_model or self.simulation.default_synapse_model
+    def create_connections(self, simdata, pre_nodes, post_nodes, cs):
+        import nest
 
-    def validate(self):
-        if self.plastic:
-            # Set plasticity synapse dict defaults for on each possible model
-            synapse_defaults = {
-                "A_minus": 0.0,
-                "A_plus": 0.0,
-                "Wmin": 0.0,
-                "Wmax": 4000.0,
-            }
-            for key, model in self.synapse.model_settings.items():
-                self.synapse.model_settings[key] = synapse_defaults.update(model)
-
-    def get_synapse_parameters(self, synapse_model_name):
-        # Get the default synapse parameters
-        return self.synapse[synapse_model_name]
-
-    def get_connection_parameters(self):
-        # Get the default synapse parameters
-        params = self.connection.copy()
-        # Add the receptor specifications, if required.
-        if self.should_specify_receptor_type():
-            # If specific receptors are specified, the weight should always be positive.
-            # We try to sanitize user data as best we can. If the given weight is a distr
-            # (given as a dict) we try to sanitize the `mu` value, if present.
-            if type(params["weight"]) is dict:
-                if "mu" in params["weight"].keys():
-                    params["weight"]["mu"] = np.abs(params["weight"]["mu"])
-            else:
-                params["weight"] = np.abs(params["weight"])
-            if "Wmax" in params:
-                params["Wmax"] = np.abs(params["Wmax"])
-            if "Wmin" in params:
-                params["Wmin"] = np.abs(params["Wmin"])
-            params["receptor_type"] = self.get_receptor_type()
-        params["model"] = self.simulation.suffixed(self.name)
-        return params
-
-    def _get_cell_types(self, key="from"):
-        meta = self.scaffold.output_formatter.get_connectivity_set_meta(self.name)
-        if key + "_cell_types" in meta:
-            cell_types = set()
-            for name in meta[key + "_cell_types"]:
-                cell_types.add(self.scaffold.get_cell_type(name))
-            return list(cell_types)
-        connection_types = (
-            self.scaffold.output_formatter.get_connectivity_set_connection_types(
-                self.name
+        syn_spec = self.get_syn_spec()
+        if syn_spec["synapse_model"] not in nest.synapse_models:
+            raise NestConnectError(
+                f"Unknown synapse model '{syn_spec['synapse_model']}'."
             )
-        )
-        cell_types = set()
-        for connection_type in connection_types:
-            cell_types |= set(connection_type.__dict__[key + "_cell_types"])
-        return list(cell_types)
-
-    def get_cell_types(self):
-        return self._get_cell_types(key="from"), self._get_cell_types(key="to")
-
-    def should_specify_receptor_type(self):
-        _, to_cell_types = self.get_cell_types()
-        if len(to_cell_types) > 1:
-            raise NotImplementedError(
-                "Specifying receptor types of connections consisiting of more than 1 cell type is currently undefined behaviour."
-            )
-        to_cell_type = to_cell_types[0]
-        to_cell_model = self.simulation.cell_models[to_cell_type.name]
-        return to_cell_model.neuron_model in to_cell_model.receptor_specifications
-
-    def get_receptor_type(self):
-        from_cell_types, to_cell_types = self.get_cell_types()
-        if len(to_cell_types) > 1:
-            raise NotImplementedError(
-                "Specifying receptor types of connections consisiting of more than 1 target cell type is currently undefined behaviour."
-            )
-        if len(from_cell_types) > 1:
-            raise NotImplementedError(
-                "Specifying receptor types of connections consisting of more than 1 origin cell type is currently undefined behaviour."
-            )
-        to_cell_type = to_cell_types[0]
-        from_cell_type = from_cell_types[0]
-        to_cell_model = self.simulation.cell_models[to_cell_type.name]
-        if from_cell_type.name in self.simulation.cell_models.keys():
-            from_cell_model = self.simulation.cell_models[from_cell_type.name]
-        else:  # For neurons receiving from entities
-            from_cell_model = self.simulation.entities[from_cell_type.name]
-        receptors = to_cell_model.get_receptor_specifications()
-        if from_cell_model.name not in receptors:
-            raise ReceptorSpecificationError(
-                "Missing receptor specification for cell model '{}' in '{}' while attempting to connect a '{}' to it during '{}'".format(
-                    to_cell_model.name, self.node_name, from_cell_model.name, self.name
+        if self.rule is not None:
+            nest.Connect(pre_nodes, post_nodes, self.get_conn_spec(), syn_spec)
+        else:
+            MPI.barrier()
+            for pre_locs, post_locs in self.predict_mem_iterator(
+                pre_nodes, post_nodes, cs
+            ):
+                MPI.barrier()
+                cell_pairs, multiplicity = np.unique(
+                    np.column_stack((pre_locs[:, 0], post_locs[:, 0])),
+                    return_counts=True,
+                    axis=0,
                 )
-            )
-        return receptors[from_cell_model.name]
+                prel = pre_nodes.tolist()
+                postl = post_nodes.tolist()
+                ssw = {**syn_spec}
+                bw = syn_spec["weight"]
+                ssw["weight"] = [bw * m for m in multiplicity]
+                ssw["delay"] = [syn_spec["delay"]] * len(ssw["weight"])
+                nest.Connect(
+                    [prel[x] for x in cell_pairs[:, 0]],
+                    [postl[x] for x in cell_pairs[:, 1]],
+                    "one_to_one",
+                    ssw,
+                    return_synapsecollection=False,
+                )
+            MPI.barrier()
+        return LazySynapseCollection(pre_nodes, post_nodes)
+
+    def predict_mem_iterator(self, pre_nodes, post_nodes, cs):
+        avmem = psutil.virtual_memory().available
+        predicted_all_mem = (
+            len(pre_nodes) * 8 * 2 + len(post_nodes) * 8 * 2 + len(cs) * 6 * 8 * (16 + 2)
+        ) * MPI.get_size()
+        predicted_local_mem = predicted_all_mem / len(cs.get_local_chunks("out"))
+        if predicted_local_mem > avmem / 2:
+            # Iterate block-by-block
+            return self.block_iterator(cs)
+        elif predicted_all_mem > avmem / 2:
+            # Iterate local hyperblocks
+            return self.local_iterator(cs)
+        else:
+            # Iterate all
+            return (cs.load_connections().as_globals().all(),)
+
+    def block_iterator(self, cs):
+        locals = cs.get_local_chunks("out")
+
+        def block_iter():
+            iter = locals
+            if MPI.get_rank() == 0:
+                iter = tqdm(iter, desc="hyperblocks", file=sys.stdout)
+            for local in iter:
+                inner_iter = cs.load_connections().as_globals().from_(local)
+                if MPI.get_rank() == 0:
+                    yield from tqdm(
+                        inner_iter,
+                        desc="blocks",
+                        total=len(cs.get_global_chunks("out", local)),
+                        file=sys.stdout,
+                        leave=False,
+                    )
+                else:
+                    yield from inner_iter
+
+        return block_iter()
+
+    def local_iterator(self, cs):
+        iter = cs.get_local_chunks("out")
+        if MPI.get_rank() == 0:
+            iter = tqdm(iter, desc="hyperblocks", file=sys.stdout)
+        yield from (
+            cs.load_connections().as_globals().from_(local).all() for local in iter
+        )
+
+    def get_connectivity_set(self):
+        if self.tag is not None:
+            return self.scaffold.get_connectivity_set(self.tag)
+        else:
+            return self.connection_model
+
+    def get_conn_spec(self):
+        return {
+            "rule": self.rule,
+            **self.constants,
+        }
+
+    def get_syn_spec(self):
+        return {
+            **{
+                label: value
+                for attr, label in (
+                    ("model", "synapse_model"),
+                    ["weight"] * 2,
+                    ["delay"] * 2,
+                    ["receptor_type"] * 2,
+                )
+                if (value := getattr(self.synapse, attr)) is not None
+            },
+            **self.synapse.constants,
+        }
